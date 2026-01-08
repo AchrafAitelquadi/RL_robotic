@@ -1,0 +1,24 @@
+# ============================================================
+# PyTorch with CUDA 12.1 (installs numpy, pillow automatically)
+# ============================================================
+--extra-index-url https://download.pytorch.org/whl/cu121
+torch==2.2.1
+
+# ============================================================
+# MuJoCo and Gymnasium (gymnasium-robotics includes gymnasium)
+# ============================================================
+mujoco==2.3.3
+gymnasium-robotics==1.2.2
+
+# ============================================================
+# Deep RL - SAC, TD3, PPO (includes tensorboard as dependency)
+# ============================================================
+stable-baselines3==2.3.0
+
+# ============================================================
+# Utilities (only what's not already installed)
+# ============================================================
+matplotlib==3.8.3
+pandas==2.2.1
+tqdm==4.66.2
+rich
