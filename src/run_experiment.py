@@ -13,7 +13,7 @@ from stable_baselines3 import TD3, SAC
 from stable_baselines3.common.noise import NormalActionNoise
 from stable_baselines3.her.her_replay_buffer import HerReplayBuffer
 
-from src.environment import make_fetch_push_env
+from src.environment import make_fetch_push_env, make_fetch_reach_env
 from src.utils import (
     create_experiment_dir,
     save_config,
@@ -41,7 +41,8 @@ def parse_args():
         '--env',
         type=str,
         default='FetchPush',
-        help='Nom de l\'environnement'
+        choices=['FetchPush', 'FetchReach'],
+        help='Nom de l\'environnement (FetchPush ou FetchReach)'
     )
     
     parser.add_argument(
@@ -86,6 +87,13 @@ def parse_args():
         type=int,
         default=1000000,
         help='Taille du replay buffer'
+    )
+    
+    parser.add_argument(
+        '--learning-starts',
+        type=int,
+        default=1000,
+        help='Nombre de steps avant de commencer l\'apprentissage (defaut: 1000)'
     )
     
     parser.add_argument(
@@ -269,19 +277,35 @@ def get_policy_kwargs(args):
 
 def create_env(args):
     """Créer l'environnement d'entraînement"""
-    env = make_fetch_push_env(
-        reward_type=args.reward_type,
-        max_episode_steps=args.max_episode_steps
-    )
+    if args.env == 'FetchPush':
+        env = make_fetch_push_env(
+            reward_type=args.reward_type,
+            max_episode_steps=args.max_episode_steps
+        )
+    elif args.env == 'FetchReach':
+        env = make_fetch_reach_env(
+            reward_type=args.reward_type,
+            max_episode_steps=args.max_episode_steps
+        )
+    else:
+        raise ValueError(f"Environnement non supporté: {args.env}")
     return env
 
 
 def create_eval_env(args):
     """Créer l'environnement d'évaluation"""
-    eval_env = make_fetch_push_env(
-        reward_type=args.reward_type,
-        max_episode_steps=args.max_episode_steps
-    )
+    if args.env == 'FetchPush':
+        eval_env = make_fetch_push_env(
+            reward_type=args.reward_type,
+            max_episode_steps=args.max_episode_steps
+        )
+    elif args.env == 'FetchReach':
+        eval_env = make_fetch_reach_env(
+            reward_type=args.reward_type,
+            max_episode_steps=args.max_episode_steps
+        )
+    else:
+        raise ValueError(f"Environnement non supporté: {args.env}")
     return eval_env
 
 
@@ -315,7 +339,7 @@ def create_model(args, env, tensorboard_log_path=None):
             env=env,
             learning_rate=args.learning_rate,
             buffer_size=args.buffer_size,
-            learning_starts=10000,
+            learning_starts=args.learning_starts,
             batch_size=args.batch_size,
             tau=args.tau,
             gamma=args.gamma,
@@ -355,7 +379,7 @@ def create_model(args, env, tensorboard_log_path=None):
             env=env,
             learning_rate=args.learning_rate,
             buffer_size=args.buffer_size,
-            learning_starts=10000,
+            learning_starts=args.learning_starts,
             batch_size=args.batch_size,
             tau=args.tau,
             gamma=args.gamma,

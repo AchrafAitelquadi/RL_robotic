@@ -39,7 +39,7 @@ class EvaluationCallback(BaseCallback):
             
             if self.verbose > 0:
                 print(f"\n{'='*80}")
-                print(f"📊 ÉVALUATION au step {self.n_calls} ({self.n_eval_episodes} épisodes)")
+                print(f"EVALUATION au step {self.n_calls} ({self.n_eval_episodes} episodes)")
                 print(f"{'='*80}")
             
             for episode_idx in range(self.n_eval_episodes):
@@ -47,6 +47,7 @@ class EvaluationCallback(BaseCallback):
                 done = False
                 episode_reward = 0
                 step_count = 0
+                min_distance = float('inf')  # Distance minimale atteinte
                 
                 while not done:
                     action, _ = self.model.predict(obs, deterministic=True)
@@ -54,23 +55,39 @@ class EvaluationCallback(BaseCallback):
                     episode_reward += reward
                     step_count += 1
                     done = terminated or truncated
+                    
+                    # Suivre la distance minimale
+                    if 'observation' in obs and 'desired_goal' in obs and 'achieved_goal' in obs:
+                        current_distance = np.linalg.norm(obs['achieved_goal'] - obs['desired_goal'])
+                        min_distance = min(min_distance, current_distance)
                 
-                # Récupérer les infos finales
-                is_success = info.get('is_success', False)
-                final_distance = info.get('distance_to_target', 0.0)
+                # Recuperer les infos finales
+                is_success = info.get('is_success', False) or info.get('is_success', 0.0)
+                
+                # Calculer distance finale
+                if 'observation' in obs and 'desired_goal' in obs and 'achieved_goal' in obs:
+                    final_distance = np.linalg.norm(obs['achieved_goal'] - obs['desired_goal'])
+                else:
+                    final_distance = info.get('distance_to_target', 0.0)
                 
                 episode_rewards.append(episode_reward)
                 episode_successes.append(1.0 if is_success else 0.0)
                 episode_distances.append(final_distance)
                 
-                # Afficher résultat de cet épisode
+                # Afficher resultat de cet episode
                 if self.verbose > 0:
-                    status_icon = "✅" if is_success else "❌"
-                    status_text = "SUCCÈS" if is_success else "ÉCHEC"
-                    print(f"  Episode {episode_idx+1:2d}/{self.n_eval_episodes}: {status_icon} {status_text:6s} | "
-                          f"Reward: {episode_reward:6.2f} | "
-                          f"Distance finale: {final_distance:.4f}m | "
-                          f"Steps: {step_count}")
+                    if is_success:
+                        status_icon = "[OK] REACH"
+                        status_text = "SUCCES"
+                    else:
+                        status_icon = "[XX] ECHEC"
+                        status_text = "ECHEC "
+                    
+                    print(f"  Ep {episode_idx+1:2d}/{self.n_eval_episodes}: {status_icon} | "
+                          f"Reward: {episode_reward:7.2f} | "
+                          f"Dist finale: {final_distance:.4f}m | "
+                          f"Dist min: {min_distance:.4f}m | "
+                          f"Steps: {step_count:2d}")
             
             mean_reward = np.mean(episode_rewards)
             mean_success = np.mean(episode_successes)
@@ -85,15 +102,20 @@ class EvaluationCallback(BaseCallback):
             
             if self.verbose > 0:
                 print(f"\n{'-'*80}")
-                print(f"📈 STATISTIQUES GLOBALES:")
-                print(f"  Succès: {num_successes}/{self.n_eval_episodes} ({mean_success*100:.1f}%)")
-                print(f"  Reward moyen: {mean_reward:.2f} (±{std_reward:.2f})")
-                print(f"  Distance moyenne: {mean_distance:.4f}m (±{std_distance:.4f}m)")
+                print(f"STATISTIQUES GLOBALES:")
+                print(f"  Taux de succes: {num_successes}/{self.n_eval_episodes} episodes ({mean_success*100:.1f}%)")
+                print(f"  Reward moyen: {mean_reward:.2f} (std: {std_reward:.2f})")
+                print(f"  Distance finale moyenne: {mean_distance:.4f}m (std: {std_distance:.4f}m)")
+                print(f"  Seuil de succes: < 0.05m (5cm)")
                 
-                if mean_success > 0:
-                    print(f"  🎯 Le robot a réussi à pousser l'objet {num_successes} fois !")
+                if mean_success >= 0.80:
+                    print(f"  [EXCELLENT] Le robot atteint la cible {num_successes}/{self.n_eval_episodes} fois!")
+                elif mean_success >= 0.50:
+                    print(f"  [BON] Le robot progresse bien ({mean_success*100:.0f}% de succes)")
+                elif mean_success > 0:
+                    print(f"  [EN COURS] Le robot commence a apprendre ({num_successes} succes)")
                 else:
-                    print(f"  ⚠️  Le robot n'a pas encore réussi à pousser l'objet vers la cible")
+                    print(f"  [DEBUT] Le robot explore encore (distance moy: {mean_distance:.4f}m)")
             
             # Sauvegarder le meilleur modèle
             if mean_reward > self.best_mean_reward and self.save_path is not None:
@@ -102,8 +124,8 @@ class EvaluationCallback(BaseCallback):
                 save_path = f"{self.save_path}/best_model"
                 self.model.save(save_path)
                 if self.verbose > 0:
-                    print(f"  ⭐ NOUVEAU RECORD ! Amélioration: +{improvement:.2f}")
-                    print(f"  💾 Meilleur modèle sauvegardé: {save_path}")
+                    print(f"  [RECORD] Nouveau meilleur score! Amelioration: +{improvement:.2f}")
+                    print(f"  [SAVE] Modele sauvegarde: {save_path}")
             
             if self.verbose > 0:
                 print(f"{'='*80}\n")

@@ -228,7 +228,7 @@ class CustomFetchPushEnv(MujocoFetchPushEnv):
         modified_action[1] = action[1]  # dy
         
         # Mouvement vertical (LIMITÉ à 20% pour stabilité)
-        modified_action[2] = action[2] * 0.2  # dz réduit
+        modified_action[2] = action[2]  # dz réduit
         
         # Gripper FERMÉ (fixé, on ignore action[3])
         modified_action[3] = -1.0  # -1 = fermé
